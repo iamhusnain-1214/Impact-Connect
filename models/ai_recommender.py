@@ -1,4 +1,5 @@
 import json
+import httpx
 from groq import Groq
 from config import Config
 from models.ngo import NGO
@@ -14,7 +15,11 @@ def _get_client():
                 "GROQ_API_KEY is not set. Check that .env exists in the project "
                 "root and contains a valid key from https://console.groq.com/keys"
             )
-        _client = Groq(api_key=Config.GROQ_API_KEY)
+        _client = Groq(
+            api_key=Config.GROQ_API_KEY,
+            timeout=httpx.Timeout(30.0, connect=10.0),
+            max_retries=3,
+        )
     return _client
 
 
