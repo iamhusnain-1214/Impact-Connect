@@ -41,7 +41,7 @@ class Config:
 
     SECRET_KEY = os.getenv("FLASK_SECRET_KEY", _DEV_SECRET)
 
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 
 
 if Config.IS_PRODUCTION and Config.SECRET_KEY == _DEV_SECRET:
