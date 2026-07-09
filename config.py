@@ -41,7 +41,7 @@ class Config:
 
     SECRET_KEY = os.getenv("FLASK_SECRET_KEY", _DEV_SECRET)
 
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 
 if Config.IS_PRODUCTION and Config.SECRET_KEY == _DEV_SECRET:
@@ -56,9 +56,10 @@ if Config.IS_PRODUCTION and Config.SECRET_KEY == _DEV_SECRET:
         "environment (e.g. Vercel Project Settings -> Environment Variables)."
     )
 
-if not Config.GEMINI_API_KEY:
+if not Config.GROQ_API_KEY:
     print(
-        f"[WARNING] GEMINI_API_KEY is empty. Looked for .env at: {BASE_DIR / '.env'}\n"
+        f"[WARNING] GROQ_API_KEY is empty. Looked for .env at: {BASE_DIR / '.env'}\n"
         f"          The AI recommendation feature (/api/ai/recommend) will fail until this is set.\n"
-        f"          Check that .env exists at that exact path and contains GEMINI_API_KEY=..."
+        f"          Check that .env exists at that exact path and contains GROQ_API_KEY=...\n"
+        f"          Get a free key at https://console.groq.com/keys"
     )
