@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Rahnuma &mdash; Your Social Impact Guide{% endblock %}
+
+{% block head %}
+<style>
+.rahnuma-shell {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--sp-4) var(--sp-3) var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 69px - 62px);
+}
+
+.rahnuma-intro {
+  text-align: center;
+  margin-bottom: var(--sp-3);
+}
+
+.rahnuma-intro .seal-lg {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--amber-400), var(--amber-600) 70%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--sp-2);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.6rem;
+  color: var(--navy-950);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+  border: 2px solid var(--amber-050);
+}
+
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-3);
+}
+
+.msg-row { display: flex; }
+.msg-row.user { justify-content: flex-end; }
+.msg-row.assistant { justify-content: flex-start; }
+
+.bubble {
+  max-width: 78%;
+  padding: 0.75rem 1.1rem;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.bubble.user {
+  background: var(--navy-900);
+  color: var(--paper);
+  border-bottom-right-radius: 4px;
+}
+
+.bubble.assistant {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-bottom-left-radius: 4px;
+  box-shadow: var(--shadow-soft);
+}
+
+.rec-card {
+  border-left: 3px solid var(--amber-500);
+  padding: 0.5rem 0.8rem;
+  margin-top: 0.5rem;
+  background: var(--paper);
+  border-radius: 6px;
+}
+
+.rec-card h4 { margin: 0 0 0.2rem; font-size: 1rem; }
+.rec-card p { margin: 0; font-size: 0.88rem; color: #555; }
+
+.typing-dots span {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--amber-500);
+  margin-right: 3px;
+  animation: bounce 1.2s infinite ease-in-out;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+
+.chat-input-row {
+  display: flex;
+  gap: 0.6rem;
+  border-top: 1px solid var(--line);
+  padding-top: var(--sp-2);
+}
+
+.chat-input-row input {
+  flex: 1;
+  padding: 0.75rem 1.1rem;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--line);
+  font-size: 0.95rem;
+}
+
+.chat-input-row input:focus { border-color: var(--amber-500); outline: none; }
+
+.chat-input-row button {
+  background: var(--amber-500);
+  color: var(--navy-900);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 0.75rem 1.6rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chat-input-row button:hover { background: var(--amber-400); }
+
+.starter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: var(--sp-3);
+}
+
+.starter-chips .chip { font-size: 0.82rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rahnuma-shell">
+  <div class="rahnuma-intro">
+    <div class="seal-lg">&#1585;&#1607;</div>
+    <h2 style="margin-bottom: 0.3rem;">Rahnuma</h2>
+    <p style="color:#777; max-width: 480px; margin: 0 auto;">Your guide to giving. Tell Rahnuma what cause you care about, and it'll point you to verified NGOs actually doing that work.</p>
+  </div>
+
+  <div class="starter-chips" id="starter-chips">
+    <div class="chip" onclick="sendStarter(this)">I want to help flood victims</div>
+    <div class="chip" onclick="sendStarter(this)">I want to educate girls in rural areas</div>
+    <div class="chip" onclick="sendStarter(this)">I have Rs. 2,000 to donate</div>
+    <div class="chip" onclick="sendStarter(this)">I want to donate blood</div>
+  </div>
+
+  <div class="chat-log" id="chat-log"></div>
+
+  <form class="chat-input-row" id="chat-form">
+    <input type="text" id="chat-input" placeholder="Ask Rahnuma about a cause you care about..." autocomplete="off">
+    <button type="submit">Send</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const log = document.getElementById("chat-log");
+
+function addUserMessage(text) {
+  const row = document.createElement("div");
+  row.className = "msg-row user";
+  row.innerHTML = `<div class="bubble user">${escapeHtml(text)}</div>`;
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+}
+
+function addAssistantTyping() {
+  const row = document.createElement("div");
+  row.className = "msg-row assistant";
+  row.id = "typing-row";
+  row.innerHTML = `<div class="bubble assistant typing-dots"><span></span><span></span><span></span></div>`;
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById("typing-row");
+  if (el) el.remove();
+}
+
+function addAssistantMessage(html) {
+  const row = document.createElement("div");
+  row.className = "msg-row assistant";
+  row.innerHTML = `<div class="bubble assistant">${html}</div>`;
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function askRahnuma(query) {
+  addUserMessage(query);
+  addAssistantTyping();
+  document.getElementById("starter-chips").style.display = "none";
+
+  try {
+    const data = await apiFetch("/api/ai/recommend", {
+      method: "POST",
+      body: JSON.stringify({ query }),
+    });
+    removeTyping();
+
+    if (!data.recommendations || data.recommendations.length === 0) {
+      addAssistantMessage(`I couldn't find a close match for that in our verified directory yet. Try describing it differently, or browse the <a href="/">full directory</a>.`);
+      return;
+    }
+
+    const cardsHtml = data.recommendations.map(r => `
+      <div class="rec-card">
+        <h4><a href="/ngo/${r.ngo_id}">${escapeHtml(r.name)}</a></h4>
+        <p>${escapeHtml(r.reason)}</p>
+      </div>
+    `).join("");
+
+    addAssistantMessage(`Here's what I found for you:${cardsHtml}`);
+  } catch (err) {
+    removeTyping();
+    addAssistantMessage(`I ran into a problem reaching my recommendation engine (${escapeHtml(err.message)}). Please try again in a moment.`);
+  }
+}
+
+document.getElementById("chat-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const input = document.getElementById("chat-input");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  askRahnuma(text);
+});
+
+function sendStarter(el) {
+  askRahnuma(el.textContent);
+}
+
+addAssistantMessage("Salam! I'm Rahnuma. Tell me a cause you care about, how much you'd like to give, or how you'd like to volunteer &mdash; I'll match you with verified NGOs doing that exact work.");
+</script>
+{% endblock %}

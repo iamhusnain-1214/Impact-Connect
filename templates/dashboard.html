@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}My Dashboard &mdash; ImpactConnect{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="container">
+    <h2>Welcome back, {{ user.name }}</h2>
+    <p style="color: var(--muted);">Your donor dashboard &mdash; track what you've reviewed and jump back into finding causes.</p>
+
+    <div class="dash-grid">
+      <div class="dash-card">
+        <h3>Find a Cause</h3>
+        <p style="color:#666; font-size:0.92rem;">Browse the full NGO directory or ask Rahnuma for a match.</p>
+        <a href="{{ url_for('directory_page') }}" class="btn btn-primary btn-sm">Browse Directory</a>
+        <a href="{{ url_for('rahnuma_page') }}" class="btn btn-gold btn-sm">Ask Rahnuma</a>
+      </div>
+    </div>
+
+    <h3 style="margin-top: var(--sp-4);">My Reviews</h3>
+    <div id="my-reviews"><p>Loading&hellip;</p></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadMyReviews() {
+  const el = document.getElementById("my-reviews");
+  try {
+    const reviews = await apiFetch("/api/my-reviews");
+    if (reviews.length === 0) {
+      el.innerHTML = `<div class="empty-state"><h3>No reviews yet</h3><p>Visit an NGO's page to leave your first review.</p></div>`;
+      return;
+    }
+    el.innerHTML = reviews.map(r => `
+      <div class="ngo-card" style="margin-bottom: var(--sp-2);">
+        <h3><a href="/ngo/${r.ngo_id}">${escapeHtml(r.ngo_name)}</a></h3>
+        <div>${"&#9733;".repeat(r.rating)}${"&#9734;".repeat(5 - r.rating)}</div>
+        <p style="margin-top:0.4rem;">${escapeHtml(r.comment || "")}</p>
+      </div>
+    `).join("");
+  } catch (err) {
+    el.innerHTML = `<div class="empty-state"><h3>Couldn't load your reviews</h3><p>${escapeHtml(err.message)}</p></div>`;
+  }
+}
+
+loadMyReviews();
+</script>
+{% endblock %}

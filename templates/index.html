@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}ImpactConnect Pakistan{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-copy">
+      <div class="eyebrow">The Directory</div>
+      <h1>Find NGOs You Can Actually Trust</h1>
+      <p class="sub">One indexed record of Pakistani NGOs — verified, categorized, and searchable — with Rahnuma, an AI guide, to point you to the right cause in seconds.</p>
+
+      <div class="landing-cta-row">
+        <a href="{{ url_for('directory_page') }}" class="btn btn-gold">Browse the Directory</a>
+        <a href="{{ url_for('rahnuma_page') }}" class="btn btn-outline" style="border-color: rgba(255,255,255,0.4); color: #fff;">&#10024; Ask Rahnuma</a>
+      </div>
+
+      <div class="stat-strip" id="stat-strip"></div>
+    </div>
+
+    <div class="card-stack">
+      <div class="stack-card c1">
+        <span class="idx">CAT &middot; 01</span>
+        <span class="cat-name">Health &amp; Relief</span>
+        <span class="cat-note">Clinics, disaster response, emergency care</span>
+      </div>
+      <div class="stack-card c2">
+        <span class="idx">CAT &middot; 02</span>
+        <span class="cat-name">Education</span>
+        <span class="cat-note">Schools, literacy, scholarships</span>
+      </div>
+      <div class="stack-card c3">
+        <span class="idx">CAT &middot; 03</span>
+        <span class="cat-name">Environment</span>
+        <span class="cat-note">Conservation, clean water, climate</span>
+      </div>
+      <div class="stack-card c4">
+        <span class="idx">CAT &middot; 04</span>
+        <span class="cat-name">Community</span>
+        <span class="cat-note">Shelter, livelihoods, welfare</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadStats() {
+  try {
+    const s = await apiFetch("/api/public-stats");
+    document.getElementById("stat-strip").innerHTML = `
+      <div class="stat"><span class="num">${s.total_ngos}</span><span class="label">NGOs Listed</span></div>
+      <div class="stat"><span class="num">${s.verified_ngos}</span><span class="label">Verified</span></div>
+      <div class="stat"><span class="num">${s.total_categories}</span><span class="label">Causes</span></div>
+    `;
+  } catch (err) {
+    // fail silently on landing page - stats are a nice-to-have, not critical
+  }
+}
+loadStats();
+</script>
+{% endblock %}

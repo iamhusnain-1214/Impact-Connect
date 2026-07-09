@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}ImpactConnect Pakistan{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="container">
+      <a href="{{ url_for('home_page') }}" class="brand">
+        <span class="seal">IC</span>
+        ImpactConnect
+      </a>
+      <div class="nav-links">
+        <a href="{{ url_for('directory_page') }}">Directory</a>
+        <a href="{{ url_for('rahnuma_page') }}" class="pill-btn" style="margin-right: 0.5rem;">&#10024; Ask Rahnuma</a>
+        {% if user %}
+          {% if user.role == 'admin' %}
+            <a href="{{ url_for('admin_page') }}">Admin Panel</a>
+          {% else %}
+            <a href="{{ url_for('dashboard_page') }}">My Dashboard</a>
+          {% endif %}
+          <span style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">Hi, {{ user.name }}</span>
+          <a href="#" onclick="logout(event)" class="pill-btn">Logout</a>
+        {% else %}
+          <a href="{{ url_for('login_page') }}">Login</a>
+          <a href="{{ url_for('register_page') }}" class="pill-btn">Sign Up</a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  {% block content %}{% endblock %}
+
+  <footer class="footer">
+    ImpactConnect Pakistan &mdash; connecting citizens with verified NGOs across Pakistan
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

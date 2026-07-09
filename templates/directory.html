@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Directory &mdash; ImpactConnect{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="container">
+    <h2>Browse the Directory</h2>
+
+    <div class="directory-toolbar">
+      <input type="text" id="search-box" placeholder="Search NGOs by name or description...">
+      <button class="btn btn-outline" onclick="resetAndLoad()">Search</button>
+    </div>
+
+    <div class="chip-row" id="category-chips"></div>
+
+    <div id="ngo-grid" class="ngo-grid">
+      <p>Loading NGOs&hellip;</p>
+    </div>
+
+    <div class="load-more-wrap" id="load-more-wrap" style="display:none;">
+      <button class="btn btn-outline" id="load-more-btn" onclick="loadMore()">Load More</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let activeCategory = null;
+let currentOffset = 0;
+const PAGE_SIZE = 24;
+let allLoaded = [];
+
+async function loadCategories() {
+  const cats = await apiFetch("/api/categories");
+  const row = document.getElementById("category-chips");
+  row.innerHTML = `<div class="chip active" data-cat="" onclick="selectCategory(this, null)">All</div>` +
+    cats.map(c => `<div class="chip" data-cat="${escapeHtml(c.name)}" onclick="selectCategory(this, '${escapeHtml(c.name)}')">${escapeHtml(c.name)}</div>`).join("");
+}
+
+function selectCategory(el, name) {
+  document.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+  el.classList.add("active");
+  activeCategory = name;
+  resetAndLoad();
+}
+
+function resetAndLoad() {
+  currentOffset = 0;
+  allLoaded = [];
+  loadNgos(true);
+}
+
+async function loadNgos(replace) {
+  const grid = document.getElementById("ngo-grid");
+  const keyword = document.getElementById("search-box").value.trim();
+  const params = new URLSearchParams();
+  if (keyword) params.set("q", keyword);
+  if (activeCategory) params.set("category", activeCategory);
+  params.set("limit", PAGE_SIZE);
+  params.set("offset", currentOffset);
+
+  if (replace) grid.innerHTML = "<p>Loading NGOs&hellip;</p>";
+
+  try {
+    const ngos = await apiFetch(`/api/ngos?${params.toString()}`);
+    if (replace && ngos.length === 0) {
+      grid.innerHTML = `<div class="empty-state"><h3>No NGOs match yet</h3><p>Try a different search or category.</p></div>`;
+      document.getElementById("load-more-wrap").style.display = "none";
+      return;
+    }
+
+    allLoaded = replace ? ngos : allLoaded.concat(ngos);
+    grid.innerHTML = allLoaded.map(renderCard).join("");
+
+    document.getElementById("load-more-wrap").style.display = ngos.length === PAGE_SIZE ? "block" : "none";
+  } catch (err) {
+    grid.innerHTML = `<div class="empty-state"><h3>Couldn't load NGOs</h3><p>${escapeHtml(err.message)}</p></div>`;
+  }
+}
+
+function loadMore() {
+  currentOffset += PAGE_SIZE;
+  loadNgos(false);
+}
+
+function renderCard(ngo) {
+  const tags = (ngo.categories || []).slice(0, 3).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("");
+  return `
+    <a href="/ngo/${ngo.ngo_id}" class="ngo-card" style="text-decoration:none; color:inherit;">
+      ${ngo.verified ? `<div class="seal-badge" title="Verified NGO">&#10003;</div>` : ""}
+      <h3>${escapeHtml(ngo.name)}</h3>
+      <div class="location">${escapeHtml(ngo.city || "")}${ngo.province ? ", " + escapeHtml(ngo.province) : ""}</div>
+      <div class="desc">${escapeHtml((ngo.description || "").slice(0, 120))}${ngo.description && ngo.description.length > 120 ? "&hellip;" : ""}</div>
+      <div class="tags">${tags}</div>
+    </a>
+  `;
+}
+
+document.getElementById("search-box").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); resetAndLoad(); }
+});
+
+loadCategories();
+loadNgos(true);
+</script>
+{% endblock %}

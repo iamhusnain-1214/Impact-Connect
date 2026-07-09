@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Sign Up &mdash; ImpactConnect{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="container">
+    <div class="form-card">
+      <h2>Join ImpactConnect</h2>
+      <div class="error-msg" id="msg"></div>
+      <form id="register-form">
+        <div class="field">
+          <label for="name">Full Name</label>
+          <input type="text" id="name" required>
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" required>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" required minlength="6">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+      </form>
+      <div class="form-footer">
+        Already have an account? <a href="{{ url_for('login_page') }}">Log in</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById("register-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("msg");
+  msg.style.display = "none";
+
+  try {
+    await apiFetch("/api/register", {
+      method: "POST",
+      body: JSON.stringify({
+        name: document.getElementById("name").value,
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value,
+      }),
+    });
+    window.location.href = "/dashboard";
+  } catch (err) {
+    showMessage(msg, err.message);
+  }
+});
+</script>
+{% endblock %}

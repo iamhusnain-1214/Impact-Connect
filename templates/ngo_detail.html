@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}NGO Profile &mdash; ImpactConnect{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="container" id="ngo-container">
+    <p>Loading&hellip;</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ngoId = {{ ngo_id }};
+const currentUser = {{ (user | tojson) if user else 'null' }};
+
+async function loadNgo() {
+  const container = document.getElementById("ngo-container");
+  try {
+    const ngo = await apiFetch(`/api/ngos/${ngoId}`);
+    const reviews = await apiFetch(`/api/ngos/${ngoId}/reviews`);
+
+    const tags = (ngo.categories || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("");
+
+    container.innerHTML = `
+      <div style="max-width: 760px; margin: 0 auto;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap: 1rem;">
+          <div>
+            <h1 style="margin-bottom:0.3rem;">${escapeHtml(ngo.name)} ${ngo.verified ? '<span class="badge-verified">&#10003; Verified</span>' : '<span class="badge-pending">Pending Verification</span>'}</h1>
+            <p class="location" style="font-size:1rem;">${escapeHtml(ngo.city || "")}${ngo.province ? ", " + escapeHtml(ngo.province) : ""}</p>
+          </div>
+        </div>
+
+        <div class="tags" style="margin: var(--sp-2) 0;">${tags}</div>
+
+        <div class="ngo-card" style="margin-bottom: var(--sp-3);">
+          <h3>Mission</h3>
+          <p>${escapeHtml(ngo.mission || "Not specified yet.")}</p>
+          <h3>About</h3>
+          <p>${escapeHtml(ngo.description || "No description available.")}</p>
+          ${ngo.average_rating ? `<p><strong>Average Rating:</strong> ${ngo.average_rating} / 5</p>` : ""}
+          ${ngo.contact ? `<p><strong>Contact:</strong> ${escapeHtml(ngo.contact)}</p>` : ""}
+          ${ngo.website ? `<p><strong>Website:</strong> <a href="${escapeHtml(ngo.website)}" target="_blank">${escapeHtml(ngo.website)}</a></p>` : ""}
+        </div>
+
+        <h3>Reviews (${reviews.length})</h3>
+        <div id="reviews-list">
+          ${reviews.length === 0 ? '<p style="color:#8a8370;">No reviews yet. Be the first to share your experience.</p>' :
+            reviews.map(r => `
+              <div class="ngo-card" style="margin-bottom: var(--sp-2);">
+                <strong>${escapeHtml(r.reviewer_name)}</strong> &middot; ${"&#9733;".repeat(r.rating)}${"&#9734;".repeat(5 - r.rating)}
+                <p style="margin-top:0.4rem;">${escapeHtml(r.comment || "")}</p>
+              </div>
+            `).join("")
+          }
+        </div>
+
+        <div class="form-card" style="margin-top: var(--sp-3);">
+          <h3>Leave a Review</h3>
+          ${currentUser ? `
+            <div class="error-msg" id="review-msg"></div>
+            <form id="review-form">
+              <div class="field">
+                <label for="rating">Rating</label>
+                <select id="rating">
+                  <option value="5">5 - Excellent</option>
+                  <option value="4">4 - Good</option>
+                  <option value="3">3 - Average</option>
+                  <option value="2">2 - Poor</option>
+                  <option value="1">1 - Very Poor</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="comment">Comment</label>
+                <textarea id="comment" rows="3"></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary">Submit Review</button>
+            </form>
+          ` : `<p>Please <a href="/login">log in</a> to leave a review.</p>`}
+        </div>
+      </div>
+    `;
+
+    if (currentUser) {
+      document.getElementById("review-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById("review-msg");
+        try {
+          await apiFetch(`/api/ngos/${ngoId}/reviews`, {
+            method: "POST",
+            body: JSON.stringify({
+              user_id: currentUser.user_id,
+              rating: parseInt(document.getElementById("rating").value),
+              comment: document.getElementById("comment").value,
+            }),
+          });
+          loadNgo();
+        } catch (err) {
+          showMessage(msg, err.message);
+        }
+      });
+    }
+  } catch (err) {
+    container.innerHTML = `<div class="empty-state"><h3>NGO not found</h3><p>${escapeHtml(err.message)}</p></div>`;
+  }
+}
+
+loadNgo();
+</script>
+{% endblock %}

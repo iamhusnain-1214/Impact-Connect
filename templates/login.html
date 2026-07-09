@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Login &mdash; ImpactConnect{% endblock %}
+
+{% block content %}
+<div class="page-body">
+  <div class="container">
+    <div class="form-card">
+      <h2>Welcome Back</h2>
+
+      <div class="role-tabs" id="role-tabs">
+        <button type="button" class="role-tab active" data-role="user">
+          <span class="role-tab-icon">👤</span> User
+        </button>
+        <button type="button" class="role-tab" data-role="admin">
+          <span class="role-tab-icon">🛡️</span> Admin
+        </button>
+      </div>
+
+      <div class="error-msg" id="msg"></div>
+      <form id="login-form">
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" required>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="login-submit">Log In as User</button>
+      </form>
+      <div class="form-footer">
+        Don't have an account? <a href="{{ url_for('register_page') }}">Sign up</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedRole = "user";
+
+document.querySelectorAll(".role-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".role-tab").forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    selectedRole = tab.dataset.role;
+    document.getElementById("login-submit").textContent =
+      selectedRole === "admin" ? "Log In as Admin" : "Log In as User";
+  });
+});
+
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("msg");
+  msg.style.display = "none";
+
+  try {
+    const data = await apiFetch("/api/login", {
+      method: "POST",
+      body: JSON.stringify({
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value,
+        login_as: selectedRole,
+      }),
+    });
+    window.location.href = data.user.role === "admin" ? "/admin" : "/dashboard";
+  } catch (err) {
+    showMessage(msg, err.message);
+  }
+});
+</script>
+{% endblock %}

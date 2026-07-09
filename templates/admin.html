@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel &mdash; ImpactConnect{% endblock %}
+
+{% block content %}
+<div class="admin-shell">
+  <aside class="admin-sidebar">
+    <div class="tab active" data-tab="stats" onclick="switchTab('stats', this)">Overview</div>
+    <div class="tab" data-tab="add" onclick="switchTab('add', this)">Add NGO</div>
+    <div class="tab" data-tab="all" onclick="switchTab('all', this)">Manage NGOs</div>
+  </aside>
+
+  <main class="admin-main">
+    <div id="tab-stats"><p>Loading&hellip;</p></div>
+
+    <div id="tab-add" style="display:none;">
+      <h2 id="add-form-title">Add a New NGO</h2>
+      <div class="form-card" style="margin:0; max-width: 560px;">
+        <div class="error-msg" id="add-msg"></div>
+        <div class="success-msg" id="add-success"></div>
+        <form id="add-ngo-form">
+          <input type="hidden" id="editing-ngo-id" value="">
+          <div class="field"><label>Name</label><input type="text" id="ngo-name" required></div>
+          <div class="field"><label>Description</label><textarea id="ngo-desc" rows="2"></textarea></div>
+          <div class="field"><label>Mission</label><textarea id="ngo-mission" rows="2"></textarea></div>
+          <div class="field"><label>City</label><input type="text" id="ngo-city"></div>
+          <div class="field"><label>Province</label><input type="text" id="ngo-province"></div>
+          <div class="field"><label>Contact</label><input type="text" id="ngo-contact"></div>
+          <div class="field"><label>Website</label><input type="text" id="ngo-website"></div>
+          <div class="field">
+            <label><input type="checkbox" id="ngo-verified" checked style="width:auto; margin-right:0.4rem;">Verified</label>
+          </div>
+          <div class="field">
+            <label>Categories</label>
+            <select id="ngo-categories" multiple style="height: 120px;"></select>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="add-submit-btn">Add NGO</button>
+          <button type="button" class="btn btn-outline btn-block" id="cancel-edit-btn" style="display:none; margin-top:0.5rem;" onclick="cancelEdit()">Cancel Edit</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="tab-all" style="display:none;"><p>Loading&hellip;</p></div>
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchTab(name, el) {
+  document.querySelectorAll(".admin-sidebar .tab").forEach(t => t.classList.remove("active"));
+  el.classList.add("active");
+  ["stats", "add", "all"].forEach(t => {
+    document.getElementById(`tab-${t}`).style.display = t === name ? "block" : "none";
+  });
+  if (name === "stats") loadStats();
+  if (name === "all") loadAllNgos();
+}
+
+async function loadStats() {
+  const el = document.getElementById("tab-stats");
+  try {
+    const s = await apiFetch("/api/admin/stats");
+    el.innerHTML = `
+      <h2>Overview</h2>
+      <div class="stat-grid">
+        <div class="stat-card"><span class="num">${s.total_ngos}</span><span class="label">Total NGOs</span></div>
+        <div class="stat-card"><span class="num">${s.verified_ngos}</span><span class="label">Verified</span></div>
+        <div class="stat-card"><span class="num">${s.total_categories}</span><span class="label">Categories</span></div>
+        <div class="stat-card"><span class="num">${s.total_donors}</span><span class="label">Donors</span></div>
+        <div class="stat-card"><span class="num">${s.total_reviews}</span><span class="label">Reviews</span></div>
+      </div>
+    `;
+  } catch (err) {
+    el.innerHTML = `<div class="empty-state"><h3>Couldn't load stats</h3><p>${escapeHtml(err.message)}</p></div>`;
+  }
+}
+
+async function loadAllNgos() {
+  const el = document.getElementById("tab-all");
+  el.innerHTML = `
+    <h2>Manage NGOs</h2>
+    <div style="margin-bottom:1rem;">
+      <input type="text" id="admin-search" placeholder="Search NGOs..." style="padding:0.6rem 1rem; border-radius:var(--radius); border:1.5px solid var(--border); width:280px;">
+    </div>
+    <div id="admin-ngo-table">Loading&hellip;</div>
+  `;
+  document.getElementById("admin-search").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); fetchAdminNgos(e.target.value); }
+  });
+  fetchAdminNgos();
+}
+
+async function fetchAdminNgos(q) {
+  const tableEl = document.getElementById("admin-ngo-table");
+  try {
+    const params = q ? `?q=${encodeURIComponent(q)}` : "";
+    const rows = await apiFetch(`/api/admin/all-ngos${params}`);
+    if (rows.length === 0) {
+      tableEl.innerHTML = `<div class="empty-state"><h3>No NGOs found</h3></div>`;
+      return;
+    }
+    tableEl.innerHTML = `
+      <table class="data-table">
+        <thead><tr><th>Name</th><th>City</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td><a href="/ngo/${r.ngo_id}">${escapeHtml(r.name)}</a></td>
+              <td>${escapeHtml(r.city || "-")}</td>
+              <td>${r.verified ? '<span class="badge-verified">Verified</span>' : '<span class="badge-pending">Unverified</span>'}</td>
+              <td>
+                <button class="btn btn-outline btn-sm" onclick='editNgo(${r.ngo_id})'>Edit</button>
+                <button class="btn btn-wine btn-sm" onclick="deleteNgo(${r.ngo_id}, '${escapeHtml(r.name).replace(/'/g, "\\'")}')">Delete</button>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    tableEl.innerHTML = `<div class="empty-state"><h3>Couldn't load NGOs</h3><p>${escapeHtml(err.message)}</p></div>`;
+  }
+}
+
+async function deleteNgo(ngoId, name) {
+  if (!confirm(`Delete "${name}"? This also removes its reviews and category links. This cannot be undone.`)) return;
+  try {
+    await apiFetch(`/api/ngos/${ngoId}`, { method: "DELETE" });
+    fetchAdminNgos();
+  } catch (err) {
+    alert(`Couldn't delete: ${err.message}`);
+  }
+}
+
+async function editNgo(ngoId) {
+  try {
+    const ngo = await apiFetch(`/api/ngos/${ngoId}`);
+    document.querySelector('.admin-sidebar .tab[data-tab="add"]').click();
+
+    document.getElementById("editing-ngo-id").value = ngoId;
+    document.getElementById("add-form-title").textContent = `Editing: ${ngo.name}`;
+    document.getElementById("ngo-name").value = ngo.name || "";
+    document.getElementById("ngo-desc").value = ngo.description || "";
+    document.getElementById("ngo-mission").value = ngo.mission || "";
+    document.getElementById("ngo-city").value = ngo.city || "";
+    document.getElementById("ngo-province").value = ngo.province || "";
+    document.getElementById("ngo-contact").value = ngo.contact || "";
+    document.getElementById("ngo-website").value = ngo.website || "";
+    document.getElementById("ngo-verified").checked = !!ngo.verified;
+    document.getElementById("add-submit-btn").textContent = "Save Changes";
+    document.getElementById("cancel-edit-btn").style.display = "block";
+
+    const catSelect = document.getElementById("ngo-categories");
+    Array.from(catSelect.options).forEach(opt => {
+      opt.selected = (ngo.categories || []).includes(opt.textContent);
+    });
+  } catch (err) {
+    alert(`Couldn't load NGO: ${err.message}`);
+  }
+}
+
+function cancelEdit() {
+  document.getElementById("add-ngo-form").reset();
+  document.getElementById("editing-ngo-id").value = "";
+  document.getElementById("add-form-title").textContent = "Add a New NGO";
+  document.getElementById("add-submit-btn").textContent = "Add NGO";
+  document.getElementById("cancel-edit-btn").style.display = "none";
+}
+
+async function loadCategoryOptions() {
+  const cats = await apiFetch("/api/categories");
+  document.getElementById("ngo-categories").innerHTML =
+    cats.map(c => `<option value="${c.category_id}">${escapeHtml(c.name)}</option>`).join("");
+}
+
+document.getElementById("add-ngo-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("add-msg");
+  const success = document.getElementById("add-success");
+  msg.style.display = "none";
+  success.style.display = "none";
+
+  const selected = Array.from(document.getElementById("ngo-categories").selectedOptions).map(o => parseInt(o.value));
+  const editingId = document.getElementById("editing-ngo-id").value;
+
+  const payload = {
+    name: document.getElementById("ngo-name").value,
+    description: document.getElementById("ngo-desc").value,
+    mission: document.getElementById("ngo-mission").value,
+    city: document.getElementById("ngo-city").value,
+    province: document.getElementById("ngo-province").value,
+    contact: document.getElementById("ngo-contact").value,
+    website: document.getElementById("ngo-website").value,
+    verified: document.getElementById("ngo-verified").checked,
+    category_ids: selected,
+  };
+
+  try {
+    if (editingId) {
+      await apiFetch(`/api/ngos/${editingId}`, { method: "PUT", body: JSON.stringify(payload) });
+      showMessage(success, "NGO updated.", false);
+    } else {
+      await apiFetch("/api/ngos", { method: "POST", body: JSON.stringify(payload) });
+      showMessage(success, "NGO added.", false);
+    }
+    cancelEdit();
+  } catch (err) {
+    showMessage(msg, err.message);
+  }
+});
+
+loadStats();
+loadCategoryOptions();
+</script>
+{% endblock %}
