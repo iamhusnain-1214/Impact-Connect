@@ -1,30 +1,13 @@
 import json
-import httpx
-from groq import Groq
+import requests
 from config import Config
 from models.ngo import NGO
 
-_client = None
-
-
-def _get_client():
-    global _client
-    if _client is None:
-        if not Config.GROQ_API_KEY:
-            raise RuntimeError(
-                "GROQ_API_KEY is not set. Check that .env exists in the project "
-                "root and contains a valid key from https://console.groq.com/keys"
-            )
-        _client = Groq(
-            api_key=Config.GROQ_API_KEY,
-            timeout=httpx.Timeout(30.0, connect=10.0),
-            max_retries=3,
-        )
-    return _client
+GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+MODEL_NAME = "llama-3.3-70b-versatile"
 
 
 class AIRecommender:
-    MODEL_NAME = "llama-3.3-70b-versatile"
 
     @staticmethod
     def build_context(query, limit=10):
@@ -42,7 +25,11 @@ class AIRecommender:
 
     @staticmethod
     def call_llm(query, context):
-        client = _get_client()
+        if not Config.GROQ_API_KEY:
+            raise RuntimeError(
+                "GROQ_API_KEY is not set. Check that .env exists in the project "
+                "root and contains a valid key from https://console.groq.com/keys"
+            )
 
         prompt = f"""You are a social impact advisor for a Pakistani NGO discovery platform.
 
@@ -55,13 +42,22 @@ Pick up to 3 best-matching NGOs. Return fewer if fewer are relevant.
 Respond with ONLY a JSON array, no markdown, no commentary, in this exact shape:
 [{{"ngo_id": <id>, "name": "<n>", "reason": "<one short sentence>"}}]
 """
-        response = client.chat.completions.create(
-            model=AIRecommender.MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=200,
-            temperature=0.3,
+        response = requests.post(
+            GROQ_ENDPOINT,
+            headers={
+                "Authorization": f"Bearer {Config.GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": MODEL_NAME,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 200,
+                "temperature": 0.3,
+            },
+            timeout=20,
         )
-        return response.choices[0].message.content
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
 
     @staticmethod
     def parse_response(raw_text):
